@@ -1,6 +1,9 @@
 import time
+import threading
 import tkinter as tk
+from tkinter import ttk
 from collections import defaultdict
+from scapy.all import sniff
 
 class DDoSDetector:
     def __init__(self, threshold, time_window):
@@ -27,40 +30,51 @@ class DDoSApp:
         self.detector = DDoSDetector(threshold=100, time_window=60)
         self.root = root
         self.root.title("DDoS Detector")
+        self.root.geometry("400x300")
+        self.root.configure(bg="#2c3e50")
         
-        self.label = tk.Label(root, text="DDoS Detector")
-        self.label.pack()
+        style = ttk.Style()
+        style.configure("TLabel", background="#2c3e50", foreground="#ecf0f1", font=("Helvetica", 12))
+        style.configure("TButton", background="#34495e", foreground="#ecf0f1", font=("Helvetica", 10))
+        style.configure("TText", background="#34495e", foreground="#ecf0f1", font=("Helvetica", 10))
         
-        self.start_button = tk.Button(root, text="Start Detection", command=self.start_detection)
-        self.start_button.pack()
+        self.label = ttk.Label(root, text="DDoS Detector")
+        self.label.pack(pady=10)
         
-        self.stop_button = tk.Button(root, text="Stop Detection", command=self.stop_detection)
-        self.stop_button.pack()
+        self.start_button = ttk.Button(root, text="Start Detection", command=self.start_detection)
+        self.start_button.pack(pady=5)
         
-        self.log = tk.Text(root, state='disabled', width=50, height=10)
-        self.log.pack()
+        self.stop_button = ttk.Button(root, text="Stop Detection", command=self.stop_detection)
+        self.stop_button.pack(pady=5)
+        
+        self.log = tk.Text(root, state='disabled', width=50, height=10, bg="#34495e", fg="#ecf0f1", font=("Helvetica", 10))
+        self.log.pack(pady=10)
         
         self.running = False
+        self.sniff_thread = None
 
     def start_detection(self):
         self.running = True
         self.log_message("Starting DDoS detection...")
-        self.detect_ddos()
+        self.sniff_thread = threading.Thread(target=self.detect_ddos)
+        self.sniff_thread.start()
 
     def stop_detection(self):
         self.running = False
         self.log_message("Stopping DDoS detection...")
+        if self.sniff_thread is not None:
+            self.sniff_thread.join()
 
     def detect_ddos(self):
-        if self.running:
-            test_ip = "192.168.1.1"
-            for _ in range(105):
-                self.detector.log_request(test_ip)
-                if self.detector.is_ddos(test_ip):
-                    self.log_message(f"Possible DDoS attack detected from IP: {test_ip}")
-                    break
-                time.sleep(0.5)
-            self.root.after(1000, self.detect_ddos)
+        sniff(prn=self.process_packet, stop_filter=lambda x: not self.running)
+
+    def process_packet(self, packet):
+        if packet.haslayer('IP'):
+            ip_address = packet['IP'].src
+            self.detector.log_request(ip_address)
+            print(f"Packet from IP: {ip_address}")  # Mostrar en consola
+            if self.detector.is_ddos(ip_address):
+                self.log_message(f"Possible DDoS attack detected from IP: {ip_address}")
 
     def log_message(self, message):
         self.log.config(state='normal')
@@ -71,12 +85,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = DDoSApp(root)
     root.mainloop()
-
-    # Simulación de solicitudes
-    test_ip = "192.168.1.1"
-    for _ in range(105):
-        detector.log_request(test_ip)
-        if detector.is_ddos(test_ip):
-            print(f"Possible DDoS attack detected from IP: {test_ip}")
-            break
-        time.sleep(0.5)
