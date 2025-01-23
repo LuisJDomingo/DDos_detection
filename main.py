@@ -1,10 +1,10 @@
 import threading
 import tkinter as tk
-from scapy.all import sniff, conf
+from tkinter import ttk
+from scapy.all import sniff
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import requests
-import socket
 
 class DDoSDetector:
     def __init__(self):
@@ -22,40 +22,52 @@ class DDoSDetector:
 class DDoSApp:
     def __init__(self, root):
         self.root = root
-        self.running = False
+        self.root.title("DDoS Detection System")
+        self.root.geometry("800x600")
+        self.root.configure(bg="#f0f0f0")
+        
+        self.running = threading.Event()
         self.sniff_thread = None
         self.detector = DDoSDetector()  # Inicializa el detector aquí
-        self.log = tk.Text(root)
-        self.log.pack()
-        self.start_button = tk.Button(root, text="Start Detection", command=self.start_detection)
-        self.start_button.pack()
-        self.stop_button = tk.Button(root, text="Stop Detection", command=self.stop_detection)
-        self.stop_button.pack()
-        
+
+        # Configuración del log
+        self.log_frame = ttk.LabelFrame(root, text="Log", padding=(10, 5))
+        self.log_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self.log = tk.Text(self.log_frame, height=10, state='disabled', bg="#e0e0e0")
+        self.log.pack(fill="both", expand=True)
+
+        # Configuración de los botones
+        self.button_frame = ttk.Frame(root, padding=(10, 5))
+        self.button_frame.pack(fill="x", padx=10, pady=5)
+        self.start_button = ttk.Button(self.button_frame, text="Start Detection", command=self.start_detection)
+        self.start_button.pack(side="left", padx=5)
+        self.stop_button = ttk.Button(self.button_frame, text="Stop Detection", command=self.stop_detection)
+        self.stop_button.pack(side="left", padx=5)
+
         # Configuración del gráfico
+        self.graph_frame = ttk.LabelFrame(root, text="Traffic Analysis", padding=(10, 5))
+        self.graph_frame.pack(fill="both", expand=True, padx=10, pady=10)
         self.figure, self.ax = plt.subplots()
-        self.canvas = FigureCanvasTkAgg(self.figure, master=root)
-        self.canvas.get_tk_widget().pack()
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.graph_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
     def log_message(self, message):
         self.log.config(state='normal')
         self.log.insert(tk.END, message + "\n")
         self.log.config(state='disabled')
+        self.log.see(tk.END)
 
     def start_detection(self):
-        self.running = True
+        self.running.set()
         self.log_message("Starting DDoS detection...")
         self.sniff_thread = threading.Thread(target=self.detect_ddos)
         self.sniff_thread.start()
 
     def stop_detection(self):
         self.log_message("Stopping DDoS detection...")
-        self.running = False
+        self.running.clear()
         if self.sniff_thread is not None:
-            # Enviar un paquete vacío para detener el sniff
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.sendto(b'', ('127.0.0.1', 0))
-            self.sniff_thread.join(timeout=10)  # Espera un máximo de 10 segundos para que el hilo termine
+            self.sniff_thread.join(timeout=1)  # Espera un máximo de 10 segundos para que el hilo termine
             if self.sniff_thread.is_alive():
                 self.log_message("Failed to stop DDoS detection thread.")
             else:
@@ -64,7 +76,7 @@ class DDoSApp:
 
     def detect_ddos(self):
         try:
-            sniff(prn=self.process_packet, stop_filter=lambda x: not self.running, iface="Wi-Fi 3")
+            sniff(prn=self.process_packet, stop_filter=lambda x: not self.running.is_set(), iface="Wi-Fi 3")
         except Exception as e:
             self.log_message(f"Error in sniffing: {e}")
 
