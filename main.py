@@ -67,7 +67,7 @@ class DDoSApp:
         self.log_message("Stopping DDoS detection...")
         self.running.clear()
         if self.sniff_thread is not None:
-            self.sniff_thread.join(timeout=1)  # Espera un máximo de 10 segundos para que el hilo termine
+            self.sniff_thread.join(timeout=10)  # Espera un máximo de 10 segundos para que el hilo termine
             if self.sniff_thread.is_alive():
                 self.log_message("Failed to stop DDoS detection thread.")
             else:
