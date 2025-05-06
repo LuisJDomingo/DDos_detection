@@ -80,20 +80,21 @@ class DDoSApp:
         except Exception as e:
             self.log_message(f"Error in sniffing: {e}")
 
-    def process_packet(self, packet):
-        if packet.haslayer('IP'):
-            ip_address = packet['IP'].src
-            mac_address = packet.src
-            self.detector.log_request(ip_address)
-            packet_info = packet.show(dump=True)
-            self.log_message(f"Packet from IP: {ip_address}\n{packet_info}")
-            print(f"Packet from IP: {ip_address}")
-            print(packet_info)
-            if self.detector.is_ddos(ip_address):
-                self.log_message(f"Possible DDoS attack detected from IP: {ip_address}")
-            device_type = self.get_device_type(mac_address)
-            self.log_message(f"Device type: {device_type}")
-            self.update_graph()
+    # @patch.object(DDoSApp, 'log_message')
+    def test_process_packet(self, mock_log_message):
+        # Crear un mock para el paquete
+        packet_mock = MagicMock()
+        packet_mock.haslayer.return_value = True  # Simula que el paquete tiene una capa 'IP'
+        packet_mock.__getitem__.return_value = MagicMock(src="192.168.1.1")  # Simula el acceso a packet['IP']
+        packet_mock.src = "00:11:22:33:44:55"  # Dirección MAC simulada
+        packet_mock.show.return_value = "Mock Packet Info"  # Información simulada del paquete
+
+        # Llamar al método process_packet con el mock
+        self.app.process_packet(packet_mock)
+
+        # Verificar que los mensajes de log se llamaron correctamente
+        mock_log_message.assert_any_call("Packet from IP: 192.168.1.1\nMock Packet Info")
+        mock_log_message.assert_any_call("Device type: Unknown")
 
     def get_device_type(self, mac_address):
         oui = mac_address[:8].upper().replace(':', '-')
